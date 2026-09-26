@@ -273,6 +273,12 @@ def detect_changes(units: dict[str, Unit], path_map: dict[str, list[str]], base:
 
     for file in files:
         p = Path(file)
+         # Git paths are relative to the repository root, while module
+        # paths are relative to ROOT (the osgi-workshop directory).
+        try:
+            p = p.relative_to(ROOT.parent)
+        except ValueError:
+            pass
         parts = p.parts
 
         # Root POM or pipeline logic change: safest behavior is a full rebuild.

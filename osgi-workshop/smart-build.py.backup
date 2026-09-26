@@ -49,25 +49,7 @@ def git_files(args: list[str]) -> list[str]:
     p = subprocess.run(["git", *args], cwd=ROOT, text=True, capture_output=True)
     if p.returncode != 0:
         return []
-
-    files = []
-
-    for line in p.stdout.splitlines():
-        line = line.strip()
-
-        if not line:
-            continue
-
-        # Git reports paths relative to the repository root,
-        # while smart-build.py works relative to osgi-workshop.
-        prefix = "osgi-workshop/"
-
-        if line.startswith(prefix):
-            line = line[len(prefix):]
-
-        files.append(line)
-
-    return files
+    return [x.strip() for x in p.stdout.splitlines() if x.strip()]
 
 
 def unfold_manifest(text: str) -> dict[str, str]:

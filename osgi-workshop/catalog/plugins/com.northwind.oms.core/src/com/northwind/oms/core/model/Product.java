@@ -36,3 +36,5 @@ public final class Product {
     }
     // smart build test
 }
+
+    // Smart build test 2

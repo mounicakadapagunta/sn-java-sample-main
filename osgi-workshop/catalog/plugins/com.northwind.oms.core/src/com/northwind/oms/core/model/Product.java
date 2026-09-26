@@ -34,4 +34,5 @@ public final class Product {
     public String toString() {
         return sku + " (" + displayName + ")";
     }
+    // smart build test
 }

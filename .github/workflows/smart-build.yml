@@ -1,0 +1,240 @@
+name: Northwind OMS Smart Build
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: "Select build mode"
+        required: true
+        default: changed
+        type: choice
+        options:
+          - changed
+          - all
+
+jobs:
+  smart-build:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+
+      
+      # 1. Checkout complete Git history
+      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Install Java 17
+      
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      # 3. Install Python
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 4. Install Graphviz
+
+      - name: Install Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+
+      # 5. Verify environment
+  
+      - name: Verify tools
+        run: |
+          java -version
+          mvn -version
+          python3 --version
+          dot -V
+
+      
+      # 6. Determine build mode
+    
+      - name: Determine build mode
+        id: mode
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=${{ inputs.build_mode }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=changed" >> "$GITHUB_OUTPUT"
+          fi
+
+      
+      # 7. Determine Git base
+      
+      - name: Determine Git base
+        id: base
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+
+          else
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+
+      
+      # 8. Create output directories
+      
+      - name: Prepare build output
+        run: |
+          mkdir -p osgi-workshop/build-output/full-build
+          mkdir -p osgi-workshop/build-output/changed-build
+
+      
+      # 9. Run smart build
+      
+      - name: Run smart build
+        working-directory: osgi-workshop
+        run: |
+
+          MODE="${{ steps.mode.outputs.mode }}"
+          BASE="${{ steps.base.outputs.base }}"
+
+          echo "=============================================="
+          echo "       NORTHWIND OMS SMART BUILD"
+          echo "=============================================="
+          echo "Event      : ${{ github.event_name }}"
+          echo "Branch     : ${{ github.ref_name }}"
+          echo "Commit     : ${{ github.sha }}"
+          echo "Build mode : ${MODE}"
+          echo "Base       : ${BASE}"
+          echo "=============================================="
+
+          if [[ "$MODE" == "changed" && -n "$BASE" ]]; then
+
+            python3 smart-build.py \
+              --mode changed \
+              --base "$BASE" \
+              --write-dot build-output/changed-build/dependency-graph.dot
+
+          else
+
+            python3 smart-build.py \
+              --mode "$MODE" \
+              --write-dot build-output/full-build/dependency-graph.dot
+
+          fi
+
+      
+      # 10. Generate complete full-build graph
+      
+      - name: Generate full dependency graph
+        working-directory: osgi-workshop
+        run: |
+          python3 smart-build.py \
+            --mode all \
+            --no-build \
+            --write-dot build-output/full-build/dependency-graph.dot
+
+      
+      # 11. Generate changed-build graph
+      
+      - name: Generate changed dependency graph
+        if: always()
+        working-directory: osgi-workshop
+        run: |
+
+          BASE="${{ steps.base.outputs.base }}"
+
+          if [[ -n "$BASE" ]]; then
+
+            python3 smart-build.py \
+              --mode changed \
+              --base "$BASE" \
+              --no-build \
+              --write-dot build-output/changed-build/dependency-graph.dot
+
+          else
+
+            python3 smart-build.py \
+              --mode changed \
+              --no-build \
+              --write-dot build-output/changed-build/dependency-graph.dot
+
+          fi
+
+      
+      # 12. Convert DOT → SVG
+      
+      - name: Render dependency graphs
+        if: always()
+        run: |
+
+          if [[ -f osgi-workshop/build-output/full-build/dependency-graph.dot ]]; then
+
+            dot -Tsvg \
+              osgi-workshop/build-output/full-build/dependency-graph.dot \
+              -o osgi-workshop/build-output/full-build/dependency-graph.svg
+
+          fi
+
+          if [[ -f osgi-workshop/build-output/changed-build/dependency-graph.dot ]]; then
+
+            dot -Tsvg \
+              osgi-workshop/build-output/changed-build/dependency-graph.dot \
+              -o osgi-workshop/build-output/changed-build/dependency-graph.svg
+
+          fi
+
+       # 13. Upload OSGi build artifacts
+      
+      - name: Upload OSGi artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: northwind-osgi-artifacts-${{ github.run_number }}
+          path: |
+            osgi-workshop/**/target/*.jar
+            osgi-workshop/**/target/*.zip
+          if-no-files-found: warn
+
+     
+      # 14. Upload dependency graphs
+      
+      - name: Upload dependency graphs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: northwind-dependency-graphs-${{ github.run_number }}
+          path: |
+            osgi-workshop/build-output/
+          if-no-files-found: warn
+        
+        
+      # 15. Publish OSGi artifacts to GitHub Release
+      
+      - name: Publish OSGi artifacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            osgi-workshop/**/target/*.jar
+            osgi-workshop/**/target/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -415,7 +415,7 @@ def maven_build(order: list[str], units: dict[str, Unit], skip_build: bool):
     for i, path in enumerate(project_paths, 1):
         print(f"  [{i:02d}] {path}")
 
-    cmd = ["mvn", "-B", "-ntp", "-pl", ",".join(project_paths), "verify"]
+    cmd = ["mvn", "-B", "-ntp", "-pl", ",".join(project_paths), "-am","verify"]
     print("\nExecuting selected reactor build...")
     result = run(cmd, check=False)
     if result.returncode != 0:

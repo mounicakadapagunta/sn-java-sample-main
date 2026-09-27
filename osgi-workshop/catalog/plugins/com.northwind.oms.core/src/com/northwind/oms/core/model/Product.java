@@ -34,8 +34,7 @@ public final class Product {
     public String toString() {
         return sku + " (" + displayName + ")";
     }
-    // smart build test
+   // Product model - updated to test smart-build changed mode
 }
 
-    // Smart build test 2
-    //smart build test 3
+  

@@ -38,3 +38,4 @@ public final class Product {
 }
 
     // Smart build test 2
+    //smart build test 3

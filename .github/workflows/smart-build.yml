@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+
 
   workflow_dispatch:
     inputs:
@@ -26,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
 
     steps:
 

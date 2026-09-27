@@ -225,6 +225,27 @@ def reverse_closure(changed: set[str], consumers: dict[str, set[str]]) -> set[st
                 q.append(consumer)
     return selected
 
+def dependency_closure(selected: set[str],
+                       consumers: dict[str, set[str]]) -> set[str]:
+    """Include all prerequisites of the selected build units."""
+    dependencies = set()
+    queue = deque(selected)
+
+    # Build a reverse lookup: consumer -> its prerequisites.
+    prerequisites = defaultdict(set)
+    for dependency, dependents in consumers.items():
+        for dependent in dependents:
+            prerequisites[dependent].add(dependency)
+
+    while queue:
+        current = queue.popleft()
+
+        for dependency in sorted(prerequisites.get(current, ())):
+            if dependency not in selected and dependency not in dependencies:
+                dependencies.add(dependency)
+                queue.append(dependency)
+
+    return selected | dependencies
 
 def topo_sort(nodes: set[str], consumers: dict[str, set[str]]) -> list[str]:
     indegree = {n: 0 for n in nodes}
@@ -435,6 +456,7 @@ def main():
             selected = set()
         else:
             selected = reverse_closure(changed, consumers)
+            selected = dependency_closure(selected, consumers)
 
     if args.mode == "changed" and not selected:
         return 0

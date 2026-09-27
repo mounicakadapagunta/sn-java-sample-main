@@ -299,8 +299,9 @@ def detect_changes(units: dict[str, Unit], path_map: dict[str, list[str]], base:
             pass
         parts = p.parts
 
-        # Root POM or pipeline logic change: safest behavior is a full rebuild.
-        if str(p) in {"pom.xml", "smart-build.py"}:
+        # A root POM change can affect every module.
+        # Changes to the smart-build script do not require rebuilding application modules.
+        if str(p) == "pom.xml":
             changed.update(units)
             continue
 

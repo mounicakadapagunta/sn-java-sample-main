@@ -14,7 +14,13 @@ public class AccessController {
         if (principal == null || requiredRole == null) {
             return false;
         }
-        return principal.hasRole(requiredRole) || principal.hasRole("ADMIN");
+
+        Set<String> roles = principal.getRoles();
+        if (roles == null) {
+            return false;
+        }
+
+        return roles.contains(requiredRole) || roles.contains("ADMIN");
     }
 
     public void checkPermission(Principal principal, String requiredRole) {

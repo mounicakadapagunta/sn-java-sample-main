@@ -18,6 +18,13 @@ public class NotificationService {
     private final List<Notification> outbox = new ArrayList<>();
 
     public Notification notifyShipmentUpdate(Customer customer, Shipment shipment) {
+        if (customer == null) {
+            throw new IllegalArgumentException("customer is required");
+        }
+        if (shipment == null) {
+            throw new IllegalArgumentException("shipment is required");
+        }
+
         Channel channel = preferredChannel(customer);
         String body = "Hi " + customer.getFullName() + ", your parcel " + shipment.getTrackingId()
                 + " is now " + shipment.getStatus() + ".";
